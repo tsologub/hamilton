@@ -420,3 +420,35 @@ func (c *ServicePrincipalsClient) ListOwnedObjects(ctx context.Context, id strin
 	}
 	return &ret, status, nil
 }
+
+// ListCreatedObjects retrieves created directoryobject objects by a Service Principal.
+// id is the object ID of the service principal.
+func (c *ServicePrincipalsClient) ListCreatedObjects(ctx context.Context, id string) (*[]string, int, error) {
+	resp, status, _, err := c.BaseClient.Get(ctx, GetHttpRequestInput{
+		ValidStatusCodes: []int{http.StatusOK},
+		Uri: Uri{
+			Entity:      fmt.Sprintf("/servicePrincipals/%s/createdObjects", id),
+			Params:      url.Values{"$select": []string{"id"}},
+			HasTenantId: true,
+		},
+	})
+	if err != nil {
+		return nil, status, err
+	}
+	defer resp.Body.Close()
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var data struct {
+		CreatedObjects []struct {
+			Type string `json:"@odata.type"`
+			Id   string `json:"id"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(respBody, &data); err != nil {
+		return nil, status, err
+	}
+	ret := make([]string, len(data.CreatedObjects))
+	for i, v := range data.CreatedObjects {
+		ret[i] = v.Id
+	}
+	return &ret, status, nil
+}
